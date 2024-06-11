@@ -1,0 +1,15 @@
+/**/.DS_Store
+/**/.vscode
+/**/node_modules
+/**/package-lock.json
+/**/npm/dist
+/**/truffle-config.js
+/**/artifacts
+/**/bin
+/**/build
+/**/lib
+/**/out
+/**/.env
+/**/*.env
+/**/yarn.lock
+/**/dump
