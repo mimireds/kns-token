@@ -1,15 +1,25 @@
 {
-  "name": "kns-token",
-  "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
-  },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "dependencies": {
-    "@ethereans-labs/protocol": "git+https://github.com/Ethereans-Labs/ethereans-protocol-new-smart-contracts#development-branch"
-  }
+    "name": "kns-token",
+    "version": "1.0.0",
+    "description": "",
+    "main": "index.js",
+    "scripts": {
+        "test": "echo \"Error: no test specified\" && exit 1",
+        "multiverse-test": "mocha"
+    },
+    "keywords": [],
+    "author": "",
+    "license": "ISC",
+    "dependencies": {
+        "@ethereans-labs/protocol": "git+https://github.com/Ethereans-Labs/ethereans-protocol-new-smart-contracts#development-branch",
+        "@ethereansos/multiverse": "git+https://github.com/EthereansOS/multiverse.git"
+    },
+    "multiverse": {
+        "knowledgeBase": "resources/knowledgeBase",
+        "solidityVersion": "0.8.6"
+    },
+    "mocha": {
+        "timeout": false,
+        "require": "@ethereansos/multiverse"
+    }
 }

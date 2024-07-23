@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.25;
+pragma solidity ^0.8.0;
 
 interface ITokenTaxesReceiver {
-    function taxesArrived(uint256 amount, uint256 updatedBalance) external;
+    function taxesArrived(address from, address to, uint256 amount, uint256 updatedBalance) external;
 }

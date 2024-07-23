@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.25;
+pragma solidity ^0.8.0;
 
 import "./ITokenTaxesReceiver.sol";
 import "./TransferUtilities.sol";
@@ -12,6 +12,8 @@ contract TokenTaxesReceiver is ITokenTaxesReceiver, TransferUtilities {
     uint256 private constant FULL_PRECISION = 1e18;
     address private constant DEAD_ADDRESS = 0xdeaDDeADDEaDdeaDdEAddEADDEAdDeadDEADDEaD;
 
+    uint256 public swapFrequency = 5 seconds;
+
     address public immutable owner = msg.sender;
 
     address public tokenAddress;
@@ -20,7 +22,7 @@ contract TokenTaxesReceiver is ITokenTaxesReceiver, TransferUtilities {
 
     uint256[] private _thresholds;
     uint256[] private _amounts;
-    address[][] private _receivers;
+    address[] private _receivers;
     mapping(uint256 => bool) private _thresholdCalled;
 
     uint256 public tolerancePercentage;
@@ -41,11 +43,15 @@ contract TokenTaxesReceiver is ITokenTaxesReceiver, TransferUtilities {
 
     address public priceOracleAddress;
 
-    constructor(uint256[] memory thresholds, uint256[] memory amounts, address[][] memory receivers, address _teamWallet, uint256 _teamPercentage, address _uniswapV2RouterAddress, uint256 _minAmountForSwap) {
+    address public uniswapV2PairAddress;
+    bool private inSwap;
+    uint256 public lastSwapTime;
+
+    constructor(uint256[] memory thresholds, uint256[] memory amounts, address[] memory receivers, address _teamWallet, uint256 _teamPercentage, address _uniswapV2RouterAddress, uint256 _minAmountForSwap) {
         require((_thresholds = thresholds).length == (_amounts = amounts).length && amounts.length == receivers.length);
         for(uint256 i = 0; i < receivers.length; i++) {
-            require(i == 0 || thresholds[i] < thresholds[i - 1], "DESC");
-            receivers[i][0] = receivers[i][0] == address(0) ? address(this) : receivers[i][0] == DEAD_ADDRESS ? address(0) : receivers[i][0];
+            require(i == 0 || thresholds[i] <= thresholds[i - 1], "DESC");
+            receivers[i] = receivers[i] == address(0) ? address(this) : receivers[i] == DEAD_ADDRESS ? address(0) : receivers[i];
         }
         _receivers = receivers;
         teamWallet = _teamWallet;
@@ -54,7 +60,7 @@ contract TokenTaxesReceiver is ITokenTaxesReceiver, TransferUtilities {
         wethAddress = IUniswapV2Router02(uniswapV2RouterAddress = _uniswapV2RouterAddress).WETH();
     }
 
-    function taxesArrived(uint256 amount, uint256 updatedBalance) external {
+    function taxesArrived(address, address to, uint256 amount, uint256 updatedBalance) external override {
 
         if(_tryInit(updatedBalance)) {
             return;
@@ -64,6 +70,12 @@ contract TokenTaxesReceiver is ITokenTaxesReceiver, TransferUtilities {
         _safeTransfer(tokenAddress, teamWallet, teamTokens);
 
         balance += (amount - teamTokens);
+        if(!inSwap && to == uniswapV2PairAddress && block.timestamp >= lastSwapTime + swapFrequency) {
+            inSwap = true;
+            lastSwapTime = block.timestamp;
+            _checkMinAmountForSwap();
+            inSwap = false;
+        }
 
         _checkMinAmountForSwap();
 
@@ -73,6 +85,12 @@ contract TokenTaxesReceiver is ITokenTaxesReceiver, TransferUtilities {
     function setOracle(address _priceOracleAddress) external {
         require(msg.sender == owner);
         priceOracleAddress = _priceOracleAddress;
+    }
+
+    function setSwapFrequency(uint256 swapFrequency_) public {
+        require(msg.sender == owner);
+        require(swapFrequency_ < 5 days, "Swap frequency too long");
+        swapFrequency = swapFrequency_;
     }
 
     function flushWeth() external {
@@ -91,7 +109,7 @@ contract TokenTaxesReceiver is ITokenTaxesReceiver, TransferUtilities {
         address _tokenAddress = tokenAddress;
         require(msg.sender == _tokenAddress || _tokenAddress == address(0));
         if(exit = _tokenAddress == address(0)) {
-            tokenAddress = msg.sender;
+            uniswapV2PairAddress = IUniswapV2Factory(IUniswapV2Router02(uniswapV2RouterAddress).factory()).getPair(tokenAddress = msg.sender, wethAddress);
             reservedBalance = updatedBalance;
         }
     }
@@ -113,15 +131,10 @@ contract TokenTaxesReceiver is ITokenTaxesReceiver, TransferUtilities {
         }
     }
 
-    function _performOperation(address[] memory receivers, uint256 amount) private {
-        if(receivers[0] != address(this)) {
+    function _performOperation(address receiver, uint256 amount) private {
+        if(receiver != address(this)) {
             reservedBalance -= amount;
-            uint256 part = amount / receivers.length;
-            for(uint256 i = 0; i < receivers.length - 1; i++) {
-                _safeTransfer(tokenAddress, receivers[i], part);   
-            }
-            part *= (receivers.length - 1);
-            _safeTransfer(tokenAddress, receivers[receivers.length - 1], amount - part);
+            _safeTransfer(tokenAddress, receiver, amount);
             return;
         }
         

@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.25;
+pragma solidity ^0.8.0;
 
 import "./IWETH.sol";
 import "./ITokenTaxesReceiver.sol";
 import "./IUniswapV2.sol";
+import "./IVestingContract.sol";
 
 abstract contract Context {
     function _msgSender() internal view virtual returns (address) {
@@ -89,7 +90,7 @@ contract Token is Context, IERC20, Ownable {
 
     bool private _taxesArrivedIsCallable;
 
-    constructor(address _owner, address _uniswapV2RouterAddress, address _taxWallet, uint256 buyTax, uint256 sellTax, address[] memory accounts, uint256[] memory amounts, address[] memory excluded) payable Ownable(_owner) {
+    constructor(address _owner, address _vestingContractAddress, address _uniswapV2RouterAddress, address _taxWallet, uint256 buyTax, uint256 sellTax, address[] memory accounts, uint256[] memory amounts, address[] memory excluded) payable Ownable(_owner) {
         IUniswapV2Router02 uniswapV2Router = IUniswapV2Router02(uniswapV2RouterAddress = _uniswapV2RouterAddress);
         address _wethAddress = uniswapV2Router.WETH();
         address _uniswapV2PairAddress = IUniswapV2Factory(uniswapV2Router.factory()).createPair(address(this), _wethAddress);
@@ -117,13 +118,18 @@ contract Token is Context, IERC20, Ownable {
         }
         totalSupply = _totalSupply;
 
-        _initLiquidityPool(_uniswapV2PairAddress, _wethAddress);
+        tradingOpen = true;
 
         uint256 taxWalletLength;
         assembly {
             taxWalletLength := extcodesize(_taxWallet)
         }
-        _taxesArrivedIsCallable = taxWalletLength != 0 && _tryCallTaxArrived(0);
+        _taxesArrivedIsCallable = true;
+        _taxesArrivedIsCallable = taxWalletLength != 0 && _tryCallTaxArrived(_taxWallet, address(0), address(0), 0);
+
+        _initLiquidityPool(_uniswapV2PairAddress, _wethAddress);
+
+        try IVestingContract(_vestingContractAddress).completeInitialization() {} catch {}
     }
 
     function _initLiquidityPool(address _uniswapV2PairAddress, address _wethAddress) private {
@@ -134,9 +140,10 @@ contract Token is Context, IERC20, Ownable {
             weth.deposit{ value : balance }();
             weth.transfer(_uniswapV2PairAddress, balance);
         }
-
         if(balance != 0 || balanceOf[_uniswapV2PairAddress] != 0) {
-            IUniswapV2Pair(_uniswapV2PairAddress).sync();
+            try IUniswapV2Pair(_uniswapV2PairAddress).mint(owner) {
+            } catch {
+            }
         }
     }
 
@@ -172,7 +179,7 @@ contract Token is Context, IERC20, Ownable {
         return true;
     }
 
-    function burn(uint256 amount) external {
+    function burn(uint256 amount) external override {
         totalSupply = totalSupply.sub(amount, "ERC20: burn amount exceeds totalSupply");
         balanceOf[_msgSender()] = balanceOf[_msgSender()].sub(amount, "ERC20: burn amount exceeds balance");
     }
@@ -200,23 +207,23 @@ contract Token is Context, IERC20, Ownable {
             }
         }
 
+        if(taxAmount > 0) {
+            address _taxWallet = taxWallet;
+            balanceOf[_taxWallet] = balanceOf[_taxWallet].add(taxAmount);
+            emit Transfer(from, _taxWallet, taxAmount);
+            _tryCallTaxArrived(taxWallet, from, to, taxAmount);
+        }
+
         uint256 amoutOut = amount.sub(taxAmount);
 
         balanceOf[from] = balanceOf[from].sub(amount);
         balanceOf[to] = balanceOf[to].add(amoutOut);
         emit Transfer(from, to, amoutOut);
-
-        if(taxAmount > 0) {
-            address _taxWallet = taxWallet;
-            balanceOf[_taxWallet] = balanceOf[_taxWallet].add(taxAmount);
-            emit Transfer(from, _taxWallet, taxAmount);
-            _tryCallTaxArrived(taxAmount);
-        }
     }
 
-    function _tryCallTaxArrived(uint256 taxAmount) private returns (bool result) {
+    function _tryCallTaxArrived(address _taxWallet, address from, address to, uint256 taxAmount) private returns (bool result) {
         if(_taxesArrivedIsCallable) {
-            (result, ) = taxWallet.call(abi.encodeWithSelector(ITokenTaxesReceiver(address(0)).taxesArrived.selector, taxAmount, balanceOf[taxWallet]));
+            (result, ) = _taxWallet.call(abi.encodeWithSelector(ITokenTaxesReceiver(address(0)).taxesArrived.selector, from, to, taxAmount, balanceOf[_taxWallet]));
         }
     }
 }
