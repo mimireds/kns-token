@@ -112,9 +112,7 @@ contract TokenTaxesReceiver is ITokenTaxesReceiver, TransferUtilities {
             reservedBalance = updatedBalance;
         }
     }
-event Mcap(uint256);
     function _tryNextOperation(uint256 marketCap) private {
-        emit Mcap(marketCap);
         uint256[] memory thresholds = _thresholds;
         for(uint256 i = 0; i < thresholds.length; i++) {
             uint256 threshold = thresholds[i];
