@@ -70,9 +70,9 @@ contract Ownable is Context {
 contract Token is Context, IERC20, Ownable {
     using SafeMath for uint256;
 
-    string public constant name = unicode"The KryptoNite Show";
-    string public constant symbol = unicode"KRYPTO";
-    uint8 public constant decimals = 18;
+    string public override constant name = unicode"The KryptoNite Show";
+    string public override constant symbol = unicode"KRYPTO";
+    uint8 public override constant decimals = 18;
 
     mapping (address => uint256) public override balanceOf;
     mapping (address => mapping (address => uint256)) public override allowance;

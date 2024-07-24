@@ -17,6 +17,7 @@ contract TokenTaxesReceiver is ITokenTaxesReceiver, TransferUtilities {
     address public immutable owner = msg.sender;
 
     address public tokenAddress;
+    uint256 public unity;
 
     uint256 public reservedBalance;
 
@@ -107,11 +108,13 @@ contract TokenTaxesReceiver is ITokenTaxesReceiver, TransferUtilities {
         require(msg.sender == _tokenAddress || _tokenAddress == address(0));
         if(exit = _tokenAddress == address(0)) {
             uniswapV2PairAddress = IUniswapV2Factory(IUniswapV2Router02(uniswapV2RouterAddress).factory()).getPair(tokenAddress = msg.sender, wethAddress);
+            unity = 10**IERC20(tokenAddress).decimals();
             reservedBalance = updatedBalance;
         }
     }
-
+event Mcap(uint256);
     function _tryNextOperation(uint256 marketCap) private {
+        emit Mcap(marketCap);
         uint256[] memory thresholds = _thresholds;
         for(uint256 i = 0; i < thresholds.length; i++) {
             uint256 threshold = thresholds[i];
@@ -156,7 +159,7 @@ contract TokenTaxesReceiver is ITokenTaxesReceiver, TransferUtilities {
     }
 
     function _marketCap() private view returns (uint256) {
-        return IERC20(tokenAddress).totalSupply() * IPriceOracle(priceOracleAddress).price();
+        return (IERC20(tokenAddress).totalSupply() / unity) * IPriceOracle(priceOracleAddress).price();
     }
 
     function _calculatePercentage(uint256 total, uint256 percentage) internal pure returns (uint256) {

@@ -11,4 +11,8 @@ interface IERC20 {
     function burn(uint256 amount) external;
     event Transfer(address indexed from, address indexed to, uint256 value);
     event Approval(address indexed owner, address indexed spender, uint256 value);
+    
+    function name() external view returns(string memory);
+    function symbol() external view returns(string memory);
+    function decimals() external view returns(uint8);
 }

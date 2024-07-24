@@ -98,7 +98,7 @@ module.exports = async function start() {
         data.address,
         "0xBA2A0A4CDb2e0c8aA842B8F3AAC59f2cB08257e0",
         "0xa35f243e756F4cFA58C562f8BAF9F83425b48c5a",
-        "0xAdd68fC1eED7FaF38DD2D8629F522062C0b72fa9",
+        "0xf50731AB0b09Bc11a249FE287B7E56ce92354c73",
         VOID_ETHEREUM_ADDRESS
     ];
     var distributionAmounts = [
@@ -117,7 +117,7 @@ module.exports = async function start() {
 
     var thresholds = [];
     for(var i = 0; i < 20; i++) {
-        thresholds.push((toDecimals("50000".ethereansosMul(i + 1), 18)));
+        thresholds.push((toDecimals("5000000".ethereansosMul(i + 1), 18)));
     }
 
     thresholds = thresholds.sort((a, b) => parseInt(b) - parseInt(a));
