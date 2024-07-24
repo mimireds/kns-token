@@ -74,12 +74,9 @@ contract TokenTaxesReceiver is ITokenTaxesReceiver, TransferUtilities {
             inSwap = true;
             lastSwapTime = block.timestamp;
             _checkMinAmountForSwap();
+            _tryNextOperation(_marketCap());
             inSwap = false;
         }
-
-        _checkMinAmountForSwap();
-
-        _tryNextOperation(_marketCap());
     }
 
     function setOracle(address _priceOracleAddress) external {
@@ -144,7 +141,7 @@ contract TokenTaxesReceiver is ITokenTaxesReceiver, TransferUtilities {
         uint256 balanceOf = weth.balanceOf(address(this));
         if(balanceOf != 0) {
             address _uniswapV2RouterAddress = uniswapV2RouterAddress;
-            if(balanceOf < weth.allowance(address(this), _uniswapV2RouterAddress)) {
+            if(balanceOf > weth.allowance(address(this), _uniswapV2RouterAddress)) {
                 weth.approve(_uniswapV2RouterAddress, 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff);
             }
             address[] memory path = new address[](2);
@@ -172,11 +169,11 @@ contract TokenTaxesReceiver is ITokenTaxesReceiver, TransferUtilities {
         address[] memory path = new address[](2);
         path[0] = tokenAddress;
         path[1] = wethAddress;
-        if(router.getAmountsOut(_balance, path)[0] < minAmountForSwap) {
+        if(router.getAmountsOut(_balance, path)[1] < minAmountForSwap) {
             return;
         }
         IERC20 token = IERC20(tokenAddress);
-        if(_balance < token.allowance(address(this), address(router))) {
+        if(_balance > token.allowance(address(this), address(router))) {
             token.approve(address(router), 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff);
         }
         router.swapExactTokensForTokensSupportingFeeOnTransferTokens(_balance, 0, path, address(this), block.timestamp + 1000);
