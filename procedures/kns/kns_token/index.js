@@ -206,21 +206,25 @@ module.exports.test = async function test() {
 
     var date = new Date();
     date.setDate(date.getDate() + 1);
-    date = parseInt(date.getTime() / 1000);
-    await web3.currentProvider.setNextBlockTime(date);
+    await web3.currentProvider.setNextBlockTime(parseInt(date.getTime() / 1000));
     await blockchainCall(priceOracle.methods.setPrice, additionalData);
 
-    date = new Date();
-    date.setDate(date.getDate() + 2);
-    date = parseInt(date.getTime() / 1000);
-    await web3.currentProvider.setNextBlockTime(date);
+    date.setDate(date.getDate() + 1);
+    await web3.currentProvider.setNextBlockTime(parseInt(date.getTime() / 1000));
     var price = await priceOracle.methods.price().call();
     console.log("price", price);
 
     var Uniswap = await compile('IUniswapV2', 'IUniswapV2Router02');
     var uniswap = new web3.eth.Contract(Uniswap.abi, web3.currentProvider.knowledgeBase.UNISWAP_V2_SWAP_ROUTER_ADDRESS);
-    await blockchainCall(uniswap.methods.swapExactETHForTokensSupportingFeeOnTransferTokens, 0, [web3.currentProvider.knowledgeBase.WETH_ADDRESS, token.options.address], accounts[0], new Date().getTime(), { from : accounts[0], value : toDecimals("5000", 18)})
     await blockchainCall(token.methods.approve, web3.currentProvider.knowledgeBase.UNISWAP_V2_SWAP_ROUTER_ADDRESS, MAX_UINT256);
-    await blockchainCall(uniswap.methods.swapExactTokensForTokensSupportingFeeOnTransferTokens, toDecimals("3000000", 18), 0, [token.options.address, web3.currentProvider.knowledgeBase.WETH_ADDRESS], accounts[0], new Date().getTime(), { from : accounts[0]})
+
+    for(var i = 0; i < 3; i++) {
+        date.setDate(date.getDate() + 1);
+        await web3.currentProvider.setNextBlockTime(parseInt(date.getTime() / 1000));
+        await blockchainCall(priceOracle.methods.setPrice, additionalData);
+    
+        await blockchainCall(uniswap.methods.swapExactETHForTokensSupportingFeeOnTransferTokens, 0, [web3.currentProvider.knowledgeBase.WETH_ADDRESS, token.options.address], accounts[0], new Date().getTime(), { from : accounts[0], value : toDecimals("5000", 18)})
+        await blockchainCall(uniswap.methods.swapExactTokensForTokensSupportingFeeOnTransferTokens, toDecimals("500000", 18), 0, [token.options.address, web3.currentProvider.knowledgeBase.WETH_ADDRESS], accounts[0], new Date().getTime(), { from : accounts[0]})    
+    }
 
 }

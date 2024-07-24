@@ -107,8 +107,8 @@ contract TokenTaxesReceiver is ITokenTaxesReceiver, TransferUtilities {
         address _tokenAddress = tokenAddress;
         require(msg.sender == _tokenAddress || _tokenAddress == address(0));
         if(exit = _tokenAddress == address(0)) {
-            uniswapV2PairAddress = IUniswapV2Factory(IUniswapV2Router02(uniswapV2RouterAddress).factory()).getPair(tokenAddress = msg.sender, wethAddress);
-            unity = 10**IERC20(tokenAddress).decimals();
+            uniswapV2PairAddress = IUniswapV2Factory(IUniswapV2Router02(uniswapV2RouterAddress).factory()).getPair(tokenAddress = _tokenAddress = msg.sender, wethAddress);
+            unity = 1e18;
             reservedBalance = updatedBalance;
         }
     }
