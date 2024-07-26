@@ -1,6 +1,6 @@
 var { VOID_ETHEREUM_ADDRESS, abi, VOID_BYTES32, blockchainCall, sendBlockchainTransaction, numberToString, compile, sendAsync, deployContract, abi, MAX_UINT256, web3Utils, fromDecimals, toDecimals } = global.multiverse = require('@ethereansos/multiverse');
 
-var additionalData = { from : web3.currentProvider.knowledgeBase.from, bypassGasEstimation : !process.env.PRODUCTION };
+var additionalData = { from : web3.currentProvider.knowledgeBase.from, bypassGasEstimation : process.env.PRODUCTION !== 'true' };
 
 var fs = require('fs');
 var path = require('path');
@@ -25,7 +25,7 @@ async function deployVestingContract(bootstrapStarts) {
 
     var VestingContract = await compile('VestingContract');
 
-    var vestingContract = await deployContract(new web3.eth.Contract(VestingContract.abi), VestingContract.bin, [VOID_ETHEREUM_ADDRESS, global.vestings = (global.vestings || []).map(it => ({...it, info : {...it.info, startingFrom : it.info.startingFrom + bootstrapStarts}}))], {...additionalData, bypassGasEstimation : !process.env.PRODUCTION});
+    var vestingContract = await deployContract(new web3.eth.Contract(VestingContract.abi), VestingContract.bin, [VOID_ETHEREUM_ADDRESS, global.vestings = (global.vestings || []).map(it => ({...it, info : {...it.info, startingFrom : it.info.startingFrom + bootstrapStarts}}))], additionalData);
 
     var i = 0;
     while(true) {
@@ -158,7 +158,7 @@ module.exports = async function start() {
     ];
     
     var Token = await compile('Token');
-    var token = await deployContract(new web3.eth.Contract(Token.abi), Token.bin, tokenArgs, {...additionalData, bypassGasEstimation : !process.env.PRODUCTION, value : toDecimals('3', 18)});
+    var token = await deployContract(new web3.eth.Contract(Token.abi), Token.bin, tokenArgs, {...additionalData, value : toDecimals('3', 18)});
     web3.currentProvider.knowledgeBase.KNS = token.options.address; 
 
     console.log("Total supply", fromDecimals(await token.methods.totalSupply().call(), 18));
@@ -166,8 +166,8 @@ module.exports = async function start() {
     var UniswapV2Pair = await compile('IUniswapV2', 'IUniswapV2Pair');
     var uniswapV2PairAddress = await token.methods.uniswapV2PairAddress().call();
     var uniswapV2Pair = new web3.eth.Contract(UniswapV2Pair.abi, uniswapV2PairAddress);
-    var balanceOf = await blockchainCall(uniswapV2Pair.methods.balanceOf, web3.currentProvider.knowledgeBase.fromAddress);
-    balanceOf === '0' && await blockchainCall(uniswapV2Pair.methods.mint, web3.currentProvider.knowledgeBase.fromAddress, {...additionalData, bypassGasEstimation : process.env.PRODUCTION !== 'true'});
+    var totalSupply = await blockchainCall(uniswapV2Pair.methods.totalSupply);
+    totalSupply === '0' && await blockchainCall(token.methods.initLiquidityPool, additionalData);
 
     var Quoter = await compile('@ethereans-labs/protocol/contracts/impl/UniswapV2PriceOracleQuoter');
     var quoter = await deployContract(new web3.eth.Contract(Quoter.abi), Quoter.bin, [web3.currentProvider.knowledgeBase.UNISWAP_V2_SWAP_ROUTER_ADDRESS], additionalData);

@@ -79,8 +79,8 @@ contract Token is Context, IERC20, Ownable {
     mapping (address => bool) private _isExcludedFromFee;
     uint256 private enabled = 0;
     address public immutable taxWallet;
-    uint256 private _buyTax = 0;
-    uint256 private _sellTax = 0;
+    uint256 public _buyTax = 0;
+    uint256 public _sellTax = 0;
     
     uint256 public override totalSupply;
     
@@ -110,7 +110,7 @@ contract Token is Context, IERC20, Ownable {
         uint256 _totalSupply = 0;
         for(uint256 i = 0; i < accounts.length; i++) {
             address account = accounts[i];
-            account = account != address(0) ? account : _uniswapV2PairAddress;
+            account = account != address(0) ? account : address(this);
             uint256 amount = amounts[i];
             balanceOf[account] = balanceOf[account].add(amount);
             _totalSupply = _totalSupply.add(amount);
@@ -127,23 +127,17 @@ contract Token is Context, IERC20, Ownable {
         _taxesArrivedIsCallable = true;
         _taxesArrivedIsCallable = taxWalletLength != 0 && _tryCallTaxArrived(_taxWallet, address(0), address(0), 0);
 
-        _initLiquidityPool(_uniswapV2PairAddress, _wethAddress);
-
         try IVestingContract(_vestingContractAddress).completeInitialization() {} catch {}
     }
 
-    function _initLiquidityPool(address _uniswapV2PairAddress, address _wethAddress) private {
-
-        uint256 balance = address(this).balance;
-        if(balance != 0) {
-            IWETH weth = IWETH(_wethAddress);
-            weth.deposit{ value : balance }();
-            weth.transfer(_uniswapV2PairAddress, balance);
-        }
-        if(balance != 0 || balanceOf[_uniswapV2PairAddress] != 0) {
-            try IUniswapV2Pair(_uniswapV2PairAddress).mint(owner) {
-            } catch {
-            }
+    function initLiquidityPool() external {
+        require(IERC20(uniswapV2PairAddress).totalSupply() == 0);
+        uint256 balanceETH = address(this).balance;
+        uint256 balanceTokens = balanceOf[address(this)];
+        if(balanceETH != 0 || balanceTokens != 0) {
+            address _uniswapV2RouterAddress = uniswapV2RouterAddress;
+            _approve(address(this), _uniswapV2RouterAddress, 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff);
+            IUniswapV2Router02(_uniswapV2RouterAddress).addLiquidityETH{value : balanceETH}(address(this), balanceTokens, 0, 0, owner, block.timestamp + 1000);
         }
     }
 
